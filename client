@@ -1,0 +1,70 @@
+<?php
+namespace KS;
+
+$root = __DIR__.'/..';
+
+require_once "$root/vendor/autoload.php";
+
+try {
+    $cmd = new \Commando\Command();
+    $cmd->option('c')
+        ->aka('config-file')
+        ->describedAs("The path defining the daemon's config file");
+
+    // Get a config file path, or use default
+    if (!$cmd['c']) {
+        if (!($home = getenv("HOME"))) {
+            $home = "/root";
+        }
+        $defaultOverride = true;
+        $configFile = "$home/.config/cfx/exchange-daemon.conf";
+    } else {
+        $defaultOverride = false;
+        $configFile = realpath($cmd['c']);
+    }
+
+    if (!file_exists($configFile) && !$defaultOverride) {
+        throw new \RuntimeException("Couldn't find the config file you requested. Does `$configFile` exist?");
+    }
+
+    // Override default config with supplied config
+    $cnf = require "$root/src/config.php";
+    if (file_exists($configFile)) {
+        $localCnf = require $configFile;
+        if (!is_array($localCnf)) {
+            throw new \RuntimeException("Local config file must return an array of config values");
+        }
+        $cnf = array_replace_recursive($cnf, $localCnf);
+    }
+
+    error_reporting($cnf['error_reporting']);
+    ini_set('display_errors', $cnf['display_errors']);
+
+    do {
+        $line = trim(fgets(STDIN));
+    $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+    if ($socket === false) {
+        echo "socket_create() failed: reason: " . socket_strerror(socket_last_error()) . "\n";
+    }
+
+    $result = socket_connect($socket, $address, $service_port);
+    if ($result === false) {
+        echo "socket_connect() failed.\nReason: ($result) " . socket_strerror(socket_last_error($socket)) . "\n";
+    }
+
+    socket_write($socket, $in, strlen($in));
+
+    while ($out = socket_read($socket, 2048)) {
+        echo $out;
+    }
+
+    socket_close($socket);
+} catch (\Exception $e) {
+    fwrite(STDERR, $e->getMessage());
+} catch (\Throwable $e) {
+    fwrite(STDERR, "Uh oh... Looks like an unrecoverable error :(. ".$e->getMessage()."\n\n");
+} finally {
+    fclose(STDOUT);
+    fclose(STDERR);
+}
+

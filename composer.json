@@ -1,0 +1,20 @@
+{
+    "name" : "kael-shipman/test-exchange",
+    "require" : {
+        "kael-shipman/php-daemon": "dev-master",
+        "nategood/commando": "~0.2.9",
+        "kael-shipman/php-std-traits": "^3.2.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "KS\\": "src/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "git",
+            "url": "git@github.com:kael-shipman/php-daemon.git"
+        }
+    ]
+}
+
