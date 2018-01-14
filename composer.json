@@ -1,9 +1,12 @@
 {
     "name" : "kael-shipman/test-exchange",
     "require" : {
-        "kael-shipman/php-daemon": "dev-master",
+        "kael-shipman/php-daemon": "v0.3.x-dev",
         "nategood/commando": "~0.2.9",
         "kael-shipman/php-std-traits": "^3.2.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^6.0.0"
     },
     "autoload": {
         "psr-4": {

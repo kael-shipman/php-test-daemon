@@ -2,15 +2,6 @@
 <?php
 namespace KS;
 
-/**
- * * Should daemonize, i.e., not return until killed
- * * Should output useful info to stdout
- * * Should output errors to stderr
- * * Should fork logging processes
- * * Should accept command line arguments
- * * Should accept an optional config file
- */
-
 $root = __DIR__;
 
 require_once "$root/vendor/autoload.php";
@@ -33,14 +24,16 @@ try {
         $configFile = realpath($cmd['c']);
     }
 
-    $config = new MessageDaemonConfig("$root/src/config.php", $configFile);
+    $config = new ExchangeConfig("$root/config.php", $configFile);
     $exchange = new Exchange($config);
     $exchange->run();
 
-} catch (\Exception $e) {
-    fwrite(STDERR, $e->getMessage());
 } catch (\Throwable $e) {
     fwrite(STDERR, "Uh oh... Looks like an unrecoverable error :(. ".$e->getMessage()."\n\n");
+    if (isset($exchange)) {
+        $exchange->shutdown();
+    }
+    throw $e;
 }
 
 

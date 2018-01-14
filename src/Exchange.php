@@ -1,32 +1,79 @@
 <?php
 namespace KS;
 
-class Exchange extends AbstractMessageDaemon
+class Exchange extends AbstractSocketDaemon
 {
+    protected $orderBook;
+
+    protected function init()
+    {
+        $this->orderBook = new OrderBook($this->config);
+    }
+
     protected function processMessage(string $msg) : ?string
     {
-        // If we send an empty line, then the connection is over
+        // HTTP-ish Protocol implementation
         if ($msg === '') {
             throw new ConnectionCloseException();
-        } elseif ($msg === 'shutdown') {
-            throw new ShutdownException();
         }
 
-        $msg = json_decode($msg);
+        $msg = json_decode($msg, true);
         if (!$msg) {
-            throw new UserMessageException("Sorry, your input was not intelligible JSON. Please try again.", 401);
+            throw new UserMessageException("Sorry, your input was not intelligible JSON. Please try again.", 400);
         }
 
-        $response = [
+        $cmd = $msg['data'];
+        $resource = $cmd['attributes']['resource'];
+        $method = $cmd['attributes']['method'];
+        if ($resource['type'] === 'orders') {
+            if ($method === 'post') {
+                $this->orderBook->createOrder($resource);
+                $response = [
+                    'type' => 'exchange-responses',
+                    'attributes' => [
+                        'status' => 201,
+                        'title' => "Created",
+                    ]
+                ];
+            } elseif ($method === 'get') {
+                // Might throw exception
+                $order = $this->orderBook->getOrder($resource['id']);
+                $response = [
+                    'type' => 'exchange-responses',
+                    'attributes' => [
+                        'status' => 200,
+                        'title' => 'OK',
+                        'resource' => $order
+                    ]
+                ];
+            } else {
+                throw new UnknownMethodException("Don't know how to process method `$method` for resources of type `$resource[type]`", 400);
+            }
+        } else {
+            throw new UnknownMethodException("Don't know how to handle resources of type `$resource[type]`", 400);
+        }
+
+        return json_encode([
             'data' => [
-                'type' => 'payload',
-                'id' => date('YmdHis'),
+                'type' => 'exchange-response',
                 'attributes' => [
-                    'response' => json_encode($msg, JSON_PRETTY_PRINT)
+                    'payload' => $response,
                 ]
             ]
-        ];
-        return json_encode($response);
+        ]);
+    }
+
+    protected function formatError(\Throwable $e) : string
+    {
+        return json_encode([
+            'errors' => [
+                [
+                    'status' => $e->getCode(),
+                    'title' => 'Error',
+                    'detail' => $e->getMessage(),
+                ]
+            ]
+        ]);
     }
 }
 
